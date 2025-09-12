@@ -1,6 +1,23 @@
 import React, { useState, useCallback, DragEvent } from 'react';
 import { removeBackground } from './services/geminiService';
 
+// --- Type Definitions ---
+interface BackgroundImageAdjustments {
+  opacity: number;
+  blur: number;
+  brightness: number;
+  grayscale: number;
+}
+
+// --- Initial State ---
+const initialAdjustments: BackgroundImageAdjustments = {
+  opacity: 100,
+  blur: 0,
+  brightness: 100,
+  grayscale: 0,
+};
+
+
 // --- Utility Function ---
 const fileToBase64 = (file: File): Promise<{ base64: string; mimeType: string }> => {
   return new Promise((resolve, reject) => {
@@ -33,6 +50,8 @@ export default function App() {
   const [backgroundType, setBackgroundType] = useState<'transparent' | 'color' | 'image'>('transparent');
   const [backgroundColor, setBackgroundColor] = useState<string>('#FFFFFF');
   const [backgroundImagePreview, setBackgroundImagePreview] = useState<string | null>(null);
+  const [backgroundImageAdjustments, setBackgroundImageAdjustments] = useState<BackgroundImageAdjustments>(initialAdjustments);
+
   
   // State to control background editor visibility
   const [showBackgroundEditor, setShowBackgroundEditor] = useState<boolean>(false);
@@ -129,7 +148,13 @@ export default function App() {
                     const ratio = Math.max(hRatio, vRatio);
                     const centerShiftX = (canvas.width - background.naturalWidth * ratio) / 2;
                     const centerShiftY = (canvas.height - background.naturalHeight * ratio) / 2;
+
+                    const { opacity, blur, brightness, grayscale } = backgroundImageAdjustments;
+                    ctx.filter = `opacity(${opacity}%) blur(${blur}px) brightness(${brightness}%) grayscale(${grayscale}%)`;
+                    
                     ctx.drawImage(background, 0, 0, background.naturalWidth, background.naturalHeight, centerShiftX, centerShiftY, background.naturalWidth * ratio, background.naturalHeight * ratio);
+                    
+                    ctx.filter = 'none'; // Reset filter before drawing foreground
                     ctx.drawImage(foreground, 0, 0);
                     resolve(canvas);
                 };
@@ -156,7 +181,7 @@ export default function App() {
     } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to generate image for download.");
     }
-}, [processedImage, originalFile, backgroundType, backgroundColor, backgroundImagePreview]);
+}, [processedImage, originalFile, backgroundType, backgroundColor, backgroundImagePreview, backgroundImageAdjustments]);
   
   const handleReset = () => {
     setOriginalFile(null);
@@ -175,6 +200,7 @@ export default function App() {
     }
     setBackgroundImagePreview(null);
     setShowBackgroundEditor(false);
+    setBackgroundImageAdjustments(initialAdjustments);
   };
   
   const handleBackgroundImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -216,6 +242,7 @@ export default function App() {
                 backgroundType={backgroundType}
                 backgroundColor={backgroundColor}
                 backgroundImageUrl={backgroundImagePreview}
+                backgroundImageAdjustments={backgroundImageAdjustments}
               />
             </div>
 
@@ -227,6 +254,8 @@ export default function App() {
                 onColorChange={(e) => { setBackgroundColor(e.target.value); setBackgroundType('color'); }}
                 onSwatchClick={(color) => { setBackgroundColor(color); setBackgroundType('color'); }}
                 onImageChange={handleBackgroundImageChange}
+                adjustments={backgroundImageAdjustments}
+                onAdjustmentsChange={setBackgroundImageAdjustments}
               />
             )}
             
@@ -328,35 +357,47 @@ interface ImageDisplayProps {
     backgroundType?: 'transparent' | 'color' | 'image';
     backgroundColor?: string;
     backgroundImageUrl?: string | null;
+    backgroundImageAdjustments?: BackgroundImageAdjustments;
 }
-const ImageDisplay: React.FC<ImageDisplayProps> = ({ title, foregroundUrl, isLoading, onDownload, backgroundType = 'transparent', backgroundColor = '#FFFFFF', backgroundImageUrl = null }) => {
-    const containerStyle: React.CSSProperties = {};
-    let containerClasses = "aspect-square w-full rounded-lg bg-slate-900 flex items-center justify-center relative transition-colors duration-300";
+const ImageDisplay: React.FC<ImageDisplayProps> = ({ title, foregroundUrl, isLoading, onDownload, backgroundType = 'transparent', backgroundColor = '#FFFFFF', backgroundImageUrl = null, backgroundImageAdjustments }) => {
+    
+    const backgroundStyle: React.CSSProperties = {};
+    let backgroundClasses = "absolute inset-0 w-full h-full transition-all duration-300";
 
     if (backgroundType === 'transparent') {
-        containerClasses += " checkerboard";
+        backgroundClasses += " checkerboard";
     } else if (backgroundType === 'color') {
-        containerStyle.backgroundColor = backgroundColor;
+        backgroundStyle.backgroundColor = backgroundColor;
     } else if (backgroundType === 'image' && backgroundImageUrl) {
-        containerStyle.backgroundImage = `url(${backgroundImageUrl})`;
-        containerStyle.backgroundSize = 'cover';
-        containerStyle.backgroundPosition = 'center';
+        backgroundStyle.backgroundImage = `url(${backgroundImageUrl})`;
+        backgroundStyle.backgroundSize = 'cover';
+        backgroundStyle.backgroundPosition = 'center';
+        if (backgroundImageAdjustments) {
+            const { opacity, blur, brightness, grayscale } = backgroundImageAdjustments;
+            backgroundStyle.filter = `opacity(${opacity}%) blur(${blur}px) brightness(${brightness}%) grayscale(${grayscale}%)`;
+        }
     }
-
+    
     return (
         <div className="bg-slate-800 p-4 rounded-xl shadow-2xl flex flex-col">
             <h3 className="text-lg font-bold text-center mb-4 text-slate-300">{title}</h3>
-            <div className={containerClasses} style={containerStyle}>
+            <div className="aspect-square w-full rounded-lg bg-slate-900 flex items-center justify-center relative overflow-hidden">
+                {/* Background Layer */}
+                <div className={backgroundClasses} style={backgroundStyle} />
+
+                {/* Loading State */}
                 {isLoading && (
-                    <div className="absolute inset-0 bg-slate-900/70 flex flex-col items-center justify-center rounded-lg z-10">
+                    <div className="absolute inset-0 bg-slate-900/70 flex flex-col items-center justify-center rounded-lg z-20">
                         <SpinnerIcon />
                         <p className="mt-2 text-slate-400">Removing background...</p>
                     </div>
                 )}
+                
+                {/* Foreground Image */}
                 {foregroundUrl ? (
-                    <img src={foregroundUrl} alt={title} className="max-w-full max-h-full object-contain relative z-0" />
+                    <img src={foregroundUrl} alt={title} className="max-w-full max-h-full object-contain relative z-10" />
                 ) : (
-                    !isLoading && <div className="text-slate-500">Your result will appear here</div>
+                    !isLoading && <div className="text-slate-500 relative z-10">Your result will appear here</div>
                 )}
             </div>
             {onDownload && foregroundUrl && !isLoading && (
@@ -380,10 +421,16 @@ interface BackgroundEditorProps {
     onColorChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
     onSwatchClick: (color: string) => void;
     onImageChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+    adjustments: BackgroundImageAdjustments;
+    onAdjustmentsChange: React.Dispatch<React.SetStateAction<BackgroundImageAdjustments>>;
 }
 
-const BackgroundEditor: React.FC<BackgroundEditorProps> = ({ backgroundType, onTypeChange, color, onColorChange, onSwatchClick, onImageChange }) => {
+const BackgroundEditor: React.FC<BackgroundEditorProps> = ({ backgroundType, onTypeChange, color, onColorChange, onSwatchClick, onImageChange, adjustments, onAdjustmentsChange }) => {
     const colorSwatches = ['#FFFFFF', '#000000', '#EF4444', '#3B82F6', '#22C55E', '#EAB308', '#8B5CF6'];
+
+    const handleAdjustmentChange = (prop: keyof BackgroundImageAdjustments) => (e: React.ChangeEvent<HTMLInputElement>) => {
+        onAdjustmentsChange(prev => ({ ...prev, [prop]: Number(e.target.value) }));
+    };
     
     const TabButton: React.FC<{ type: 'transparent' | 'color' | 'image', children: React.ReactNode }> = ({ type, children }) => (
         <button
@@ -406,9 +453,9 @@ const BackgroundEditor: React.FC<BackgroundEditorProps> = ({ backgroundType, onT
                 <TabButton type="color">Color</TabButton>
                 <TabButton type="image">Image</TabButton>
             </div>
-            <div className="pt-4 border-t border-slate-700">
+            <div className="pt-4 border-t border-slate-700 min-h-[160px]">
                 {backgroundType === 'color' && (
-                    <div className="flex flex-col items-center gap-4">
+                    <div className="flex flex-col items-center gap-4 animate-fade-in">
                         <p className="text-slate-400">Choose a background color:</p>
                         <div className="flex items-center gap-4">
                             <div className="relative w-12 h-12 rounded-full border-2 border-slate-600 overflow-hidden">
@@ -436,11 +483,10 @@ const BackgroundEditor: React.FC<BackgroundEditorProps> = ({ backgroundType, onT
                     </div>
                 )}
                  {backgroundType === 'image' && (
-                    <div className="flex flex-col items-center gap-3">
-                         <p className="text-slate-400">Choose a background image:</p>
+                    <div className="flex flex-col items-center gap-3 animate-fade-in">
                         <label className="bg-slate-700 text-white font-medium py-2 px-5 rounded-lg hover:bg-slate-600 transition-colors cursor-pointer flex items-center gap-2">
                             <UploadIcon />
-                            Upload Image
+                            Upload New Background
                             <input
                                 type="file"
                                 className="hidden"
@@ -448,15 +494,52 @@ const BackgroundEditor: React.FC<BackgroundEditorProps> = ({ backgroundType, onT
                                 accept="image/*"
                             />
                         </label>
+                        <div className="w-full max-w-sm mt-4 p-4 border border-slate-700 rounded-lg space-y-3">
+                            <SliderControl label="Opacity" value={adjustments.opacity} onChange={handleAdjustmentChange('opacity')} min="0" max="100" unit="%" />
+                            <SliderControl label="Blur" value={adjustments.blur} onChange={handleAdjustmentChange('blur')} min="0" max="20" unit="px" />
+                            <SliderControl label="Brightness" value={adjustments.brightness} onChange={handleAdjustmentChange('brightness')} min="0" max="200" unit="%" />
+                            <SliderControl label="Grayscale" value={adjustments.grayscale} onChange={handleAdjustmentChange('grayscale')} min="0" max="100" unit="%" />
+                        </div>
                     </div>
                 )}
                  {backgroundType === 'transparent' && (
-                    <p className="text-center text-slate-400">The background is transparent. Perfect for layering!</p>
+                    <p className="text-center text-slate-400 pt-4 animate-fade-in">The background is transparent. Perfect for layering!</p>
                  )}
             </div>
         </div>
     );
 }
+
+interface SliderControlProps {
+    label: string;
+    value: number;
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    min: string;
+    max: string;
+    unit: string;
+}
+const SliderControl: React.FC<SliderControlProps> = ({ label, value, onChange, min, max, unit }) => (
+    <div className="flex flex-col">
+        <div className="flex justify-between items-center mb-1 text-sm">
+            <label htmlFor={`${label}-slider`} className="font-medium text-slate-300">{label}</label>
+            <span className="text-slate-400 bg-slate-900/50 px-2 py-0.5 rounded-md">{value}{unit}</span>
+        </div>
+        <input
+            id={`${label}-slider`}
+            type="range"
+            min={min}
+            max={max}
+            value={value}
+            onChange={onChange}
+            className="w-full h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer range-thumb"
+            style={{
+                '--thumb-color': '#4f46e5',
+                '--track-color': '#475569'
+            } as React.CSSProperties}
+        />
+    </div>
+);
+
 
 const UploadIcon: React.FC = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>;
 const DownloadIcon: React.FC = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" /></svg>;
