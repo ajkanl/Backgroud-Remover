@@ -1,5 +1,8 @@
+
+
 import React, { useState, useCallback, DragEvent } from 'react';
 import { removeBackground } from './services/geminiService';
+import './services/firebase';
 
 // --- Type Definitions ---
 interface BackgroundImageAdjustments {
@@ -219,9 +222,9 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col items-center p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-transparent flex flex-col items-center p-4 sm:p-6 lg:p-8">
       <Header />
-      <main className="w-full max-w-6xl flex-grow flex flex-col items-center justify-center">
+      <main className="w-full max-w-7xl flex-grow flex flex-col items-center justify-center bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl shadow-2xl p-4 sm:p-8">
         {!originalImagePreview ? (
             <ImageUploader 
                 onDrop={handleDrop} 
@@ -231,8 +234,8 @@ export default function App() {
                 dragOver={dragOver} 
             />
         ) : (
-          <div className="w-full flex flex-col items-center">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full">
+          <div className="w-full flex flex-col items-center animate-fade-in">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 w-full">
               <ImageDisplay title="Original" foregroundUrl={originalImagePreview} />
               <ImageDisplay 
                 title="Result" 
@@ -246,17 +249,19 @@ export default function App() {
               />
             </div>
 
-            {processedImage && !isLoading && showBackgroundEditor && (
-              <BackgroundEditor
-                backgroundType={backgroundType}
-                onTypeChange={setBackgroundType}
-                color={backgroundColor}
-                onColorChange={(e) => { setBackgroundColor(e.target.value); setBackgroundType('color'); }}
-                onSwatchClick={(color) => { setBackgroundColor(color); setBackgroundType('color'); }}
-                onImageChange={handleBackgroundImageChange}
-                adjustments={backgroundImageAdjustments}
-                onAdjustmentsChange={setBackgroundImageAdjustments}
-              />
+            {processedImage && !isLoading && (
+               <div className={`w-full transition-all duration-500 ease-in-out overflow-hidden ${showBackgroundEditor ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                <BackgroundEditor
+                  backgroundType={backgroundType}
+                  onTypeChange={setBackgroundType}
+                  color={backgroundColor}
+                  onColorChange={(e) => { setBackgroundColor(e.target.value); setBackgroundType('color'); }}
+                  onSwatchClick={(color) => { setBackgroundColor(color); setBackgroundType('color'); }}
+                  onImageChange={handleBackgroundImageChange}
+                  adjustments={backgroundImageAdjustments}
+                  onAdjustmentsChange={setBackgroundImageAdjustments}
+                />
+               </div>
             )}
             
             <div className="flex items-center space-x-4 mt-8">
@@ -264,7 +269,7 @@ export default function App() {
                     <button
                         onClick={handleRemoveBackground}
                         disabled={isLoading}
-                        className="bg-indigo-600 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:bg-indigo-500 disabled:bg-indigo-400 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 flex items-center"
+                        className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold py-3 px-8 rounded-lg shadow-lg hover:shadow-indigo-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 flex items-center"
                     >
                         {isLoading ? <SpinnerIcon /> : <SparklesIcon />}
                         <span className="ml-2">{isLoading ? 'Processing...' : 'Remove Background'}</span>
@@ -272,7 +277,7 @@ export default function App() {
                 ) : !isLoading && (
                      <button
                         onClick={() => setShowBackgroundEditor(p => !p)}
-                        className="bg-purple-600 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:bg-purple-500 transition-all duration-300 transform hover:scale-105 flex items-center"
+                        className="bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white font-semibold py-3 px-8 rounded-lg shadow-lg hover:shadow-purple-500/40 transition-all duration-300 transform hover:scale-105 flex items-center"
                     >
                         <PaintBrushIcon />
                         <span className="ml-2">{showBackgroundEditor ? 'Hide Editor' : 'Edit Background'}</span>
@@ -280,7 +285,7 @@ export default function App() {
                 )}
                  <button
                     onClick={handleReset}
-                    className="bg-slate-700 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:bg-slate-600 transition-all duration-300 flex items-center"
+                    className="bg-slate-700/50 border border-slate-600 text-white font-semibold py-3 px-8 rounded-lg shadow-lg hover:bg-slate-700 transition-all duration-300 flex items-center"
                  >
                     <TrashIcon />
                     <span className="ml-2">Start Over</span>
@@ -294,8 +299,8 @@ export default function App() {
             </div>
         )}
       </main>
-       <footer className="w-full text-center py-4 mt-8">
-        <p className="text-sm text-slate-500">Powered by Gemini AI</p>
+       <footer className="w-full text-center py-6 mt-8">
+        <p className="text-sm text-slate-500">Crafted By Arman kumar</p>
       </footer>
     </div>
   );
@@ -305,13 +310,13 @@ export default function App() {
 // --- Child & Icon Components ---
 
 const Header: React.FC = () => (
-    <header className="w-full max-w-6xl mb-8 text-center">
-        <h1 className="text-4xl sm:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-500 flex items-center justify-center gap-3">
+    <header className="w-full max-w-6xl text-center py-8 sm:py-12">
+        <h1 className="text-4xl sm:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-400 flex items-center justify-center gap-3">
             <SparklesIcon />
             AI Background Remover
         </h1>
-        <p className="mt-2 text-lg text-slate-400">
-            Upload an image, remove the background, and add your own creative touch.
+        <p className="mt-4 text-lg text-slate-400 max-w-2xl mx-auto">
+            Effortlessly remove image backgrounds with AI, then customize with colors, images, and professional adjustments.
         </p>
     </header>
 );
@@ -328,8 +333,10 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onDrop, onDragOver, onDra
         onDrop={onDrop} 
         onDragOver={onDragOver} 
         onDragLeave={onDragLeave}
-        className={`relative w-full max-w-xl border-4 border-dashed rounded-2xl p-12 text-center transition-all duration-300 cursor-pointer 
-        ${dragOver ? 'border-indigo-500 bg-slate-800/50' : 'border-slate-700 hover:border-indigo-600 hover:bg-slate-800/30'}`}
+        className={`relative w-full max-w-2xl border-2 border-dashed rounded-2xl p-12 text-center transition-all duration-300 group
+        ${dragOver 
+            ? 'border-indigo-400 bg-slate-800/50 shadow-[0_0_30px_-10px_theme(colors.indigo.500)]' 
+            : 'border-slate-700 hover:border-indigo-500 hover:bg-slate-800/30'}`}
     >
         <input
             type="file"
@@ -342,7 +349,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onDrop, onDragOver, onDra
             <UploadIcon />
             <p className="text-xl font-semibold text-slate-300">Drag & drop your image here</p>
             <p className="text-slate-500">or</p>
-            <span className="bg-slate-700 text-white font-medium py-2 px-5 rounded-lg hover:bg-slate-600 transition-colors">
+            <span className="bg-slate-700 text-white font-medium py-2 px-5 rounded-lg group-hover:bg-slate-600 transition-colors">
                 Browse Files
             </span>
         </label>
@@ -379,9 +386,11 @@ const ImageDisplay: React.FC<ImageDisplayProps> = ({ title, foregroundUrl, isLoa
     }
     
     return (
-        <div className="bg-slate-800 p-4 rounded-xl shadow-2xl flex flex-col">
-            <h3 className="text-lg font-bold text-center mb-4 text-slate-300">{title}</h3>
-            <div className="aspect-square w-full rounded-lg bg-slate-900 flex items-center justify-center relative overflow-hidden">
+        <div className="flex flex-col">
+            <div className="aspect-square w-full rounded-xl bg-slate-900/50 flex items-center justify-center relative overflow-hidden ring-1 ring-slate-700/50 shadow-lg">
+                <div className="absolute top-3 left-4 bg-slate-900/50 text-slate-300 text-sm font-semibold px-3 py-1 rounded-full backdrop-blur-sm z-20">
+                    {title}
+                </div>
                 {/* Background Layer */}
                 <div className={backgroundClasses} style={backgroundStyle} />
 
@@ -403,7 +412,7 @@ const ImageDisplay: React.FC<ImageDisplayProps> = ({ title, foregroundUrl, isLoa
             {onDownload && foregroundUrl && !isLoading && (
                  <button
                     onClick={onDownload}
-                    className="mt-4 w-full bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-500 transition-colors flex items-center justify-center"
+                    className="mt-4 w-full bg-green-600 text-white font-semibold py-2.5 px-4 rounded-lg hover:bg-green-500 transition-colors flex items-center justify-center shadow-lg hover:shadow-green-500/30"
                 >
                     <DownloadIcon />
                     <span className="ml-2">Download</span>
@@ -435,10 +444,10 @@ const BackgroundEditor: React.FC<BackgroundEditorProps> = ({ backgroundType, onT
     const TabButton: React.FC<{ type: 'transparent' | 'color' | 'image', children: React.ReactNode }> = ({ type, children }) => (
         <button
             onClick={() => onTypeChange(type)}
-            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+            className={`px-4 py-2 text-sm font-medium rounded-full transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-indigo-500 ${
                 backgroundType === type
-                ? 'bg-indigo-600 text-white'
-                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
             }`}
         >
             {children}
@@ -446,14 +455,14 @@ const BackgroundEditor: React.FC<BackgroundEditorProps> = ({ backgroundType, onT
     );
 
     return (
-        <div className="w-full max-w-2xl mt-8 p-4 bg-slate-800 rounded-xl shadow-lg">
+        <div className="w-full max-w-3xl mt-8 p-6 bg-slate-900/50 border border-slate-700 rounded-xl shadow-lg">
             <h3 className="text-lg font-semibold text-center mb-4 text-slate-200">Edit Background</h3>
-            <div className="flex justify-center items-center gap-2 mb-4">
+            <div className="flex justify-center items-center gap-2 mb-6">
                 <TabButton type="transparent">Transparent</TabButton>
                 <TabButton type="color">Color</TabButton>
                 <TabButton type="image">Image</TabButton>
             </div>
-            <div className="pt-4 border-t border-slate-700 min-h-[160px]">
+            <div className="pt-6 border-t border-slate-700 min-h-[180px]">
                 {backgroundType === 'color' && (
                     <div className="flex flex-col items-center gap-4 animate-fade-in">
                         <p className="text-slate-400">Choose a background color:</p>
@@ -473,7 +482,7 @@ const BackgroundEditor: React.FC<BackgroundEditorProps> = ({ backgroundType, onT
                                     <button
                                         key={swatch}
                                         onClick={() => onSwatchClick(swatch)}
-                                        className={`w-8 h-8 rounded-full transition-transform transform hover:scale-110 ${color === swatch ? 'ring-2 ring-offset-2 ring-offset-slate-800 ring-indigo-500' : ''}`}
+                                        className={`w-8 h-8 rounded-full transition-transform transform hover:scale-110 ${color === swatch ? 'ring-2 ring-offset-2 ring-offset-slate-900 ring-indigo-500' : ''}`}
                                         style={{ backgroundColor: swatch }}
                                         aria-label={`Color swatch ${swatch}`}
                                     />
@@ -483,8 +492,8 @@ const BackgroundEditor: React.FC<BackgroundEditorProps> = ({ backgroundType, onT
                     </div>
                 )}
                  {backgroundType === 'image' && (
-                    <div className="flex flex-col items-center gap-3 animate-fade-in">
-                        <label className="bg-slate-700 text-white font-medium py-2 px-5 rounded-lg hover:bg-slate-600 transition-colors cursor-pointer flex items-center gap-2">
+                    <div className="flex flex-col items-center gap-4 animate-fade-in">
+                        <label className="bg-slate-700 text-white font-medium py-2.5 px-6 rounded-lg hover:bg-slate-600 transition-colors cursor-pointer flex items-center gap-2">
                             <UploadIcon />
                             Upload New Background
                             <input
@@ -494,7 +503,18 @@ const BackgroundEditor: React.FC<BackgroundEditorProps> = ({ backgroundType, onT
                                 accept="image/*"
                             />
                         </label>
-                        <div className="w-full max-w-sm mt-4 p-4 border border-slate-700 rounded-lg space-y-3">
+                        <div className="w-full max-w-md mt-4 p-4 border border-slate-700 rounded-lg space-y-4">
+                             <div className="flex justify-between items-center -mt-1 mb-1">
+                                <h4 className="text-sm font-semibold text-slate-300">Adjust Background</h4>
+                                <button
+                                    onClick={() => onAdjustmentsChange(initialAdjustments)}
+                                    className="text-xs font-semibold text-slate-400 hover:text-white transition-colors px-2 py-1 rounded-md hover:bg-slate-700 flex items-center gap-1"
+                                    title="Reset adjustments"
+                                >
+                                    <ResetIcon />
+                                    Reset
+                                </button>
+                            </div>
                             <SliderControl label="Opacity" value={adjustments.opacity} onChange={handleAdjustmentChange('opacity')} min="0" max="100" unit="%" />
                             <SliderControl label="Blur" value={adjustments.blur} onChange={handleAdjustmentChange('blur')} min="0" max="20" unit="px" />
                             <SliderControl label="Brightness" value={adjustments.brightness} onChange={handleAdjustmentChange('brightness')} min="0" max="200" unit="%" />
@@ -522,7 +542,7 @@ const SliderControl: React.FC<SliderControlProps> = ({ label, value, onChange, m
     <div className="flex flex-col">
         <div className="flex justify-between items-center mb-1 text-sm">
             <label htmlFor={`${label}-slider`} className="font-medium text-slate-300">{label}</label>
-            <span className="text-slate-400 bg-slate-900/50 px-2 py-0.5 rounded-md">{value}{unit}</span>
+            <span className="text-slate-400 bg-slate-800/50 px-2 py-0.5 rounded-md text-xs">{value}{unit}</span>
         </div>
         <input
             id={`${label}-slider`}
@@ -531,11 +551,7 @@ const SliderControl: React.FC<SliderControlProps> = ({ label, value, onChange, m
             max={max}
             value={value}
             onChange={onChange}
-            className="w-full h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer range-thumb"
-            style={{
-                '--thumb-color': '#4f46e5',
-                '--track-color': '#475569'
-            } as React.CSSProperties}
+            className="w-full custom-slider"
         />
     </div>
 );
@@ -547,3 +563,4 @@ const SparklesIcon: React.FC = () => <svg xmlns="http://www.w3.org/2000/svg" cla
 const SpinnerIcon: React.FC = () => <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>;
 const TrashIcon: React.FC = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>;
 const PaintBrushIcon: React.FC = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" /></svg>;
+const ResetIcon: React.FC = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0011.667 0l3.182-3.182m0 0h-4.992m4.992 0v4.992M3.825 4.61a8.25 8.25 0 0111.667 0l3.182 3.182m0 0v-4.992m0 0h-4.992" /></svg>;

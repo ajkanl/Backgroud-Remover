@@ -6,15 +6,73 @@
     <title>AI Background Remover</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-      /* Simple checkerboard background for transparency visualization */
+      @keyframes gradient-spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      .animate-gradient-spin {
+          animation: gradient-spin 15s linear infinite;
+      }
+
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .animate-fade-in {
+        animation: fadeIn 0.5s ease-out forwards;
+      }
+      
       .checkerboard {
         background-image:
-          linear-gradient(45deg, #444 25%, transparent 25%),
-          linear-gradient(-45deg, #444 25%, transparent 25%),
-          linear-gradient(45deg, transparent 75%, #444 75%),
-          linear-gradient(-45deg, transparent 75%, #444 75%);
-        background-size: 20px 20px;
-        background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+          linear-gradient(45deg, #1e293b 25%, transparent 25%),
+          linear-gradient(-45deg, #1e293b 25%, transparent 25%),
+          linear-gradient(45deg, transparent 75%, #1e293b 75%),
+          linear-gradient(-45deg, transparent 75%, #1e293b 75%);
+        background-size: 16px 16px;
+        background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+        background-color: #334155;
+      }
+
+      /* Custom Range Slider Styles */
+      input[type="range"].custom-slider {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 100%;
+        height: 6px;
+        background: #334155; /* slate-700 */
+        border-radius: 9999px;
+        outline: none;
+        opacity: 0.7;
+        transition: opacity .2s;
+      }
+      input[type="range"].custom-slider:hover {
+        opacity: 1;
+      }
+      input[type="range"].custom-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 18px;
+        height: 18px;
+        background: #818cf8; /* indigo-400 */
+        cursor: pointer;
+        border-radius: 50%;
+        border: 2px solid #1e293b; /* slate-800 */
+        transition: background .2s;
+      }
+      input[type="range"].custom-slider::-moz-range-thumb {
+        width: 18px;
+        height: 18px;
+        background: #818cf8; /* indigo-400 */
+        cursor: pointer;
+        border-radius: 50%;
+        border: 2px solid #1e293b; /* slate-800 */
+        transition: background .2s;
+      }
+       input[type="range"].custom-slider:hover::-webkit-slider-thumb {
+          background: #a5b4fc; /* indigo-300 */
+      }
+       input[type="range"].custom-slider:hover::-moz-range-thumb {
+          background: #a5b4fc; /* indigo-300 */
       }
     </style>
   <script type="importmap">
@@ -23,12 +81,20 @@
     "react": "https://aistudiocdn.com/react@^19.1.1",
     "react/": "https://aistudiocdn.com/react@^19.1.1/",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.19.0"
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.19.0",
+    "firebase/app": "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js",
+    "firebase/analytics": "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js",
+    "firebase/": "https://aistudiocdn.com/firebase@^12.2.1/"
   }
 }
 </script>
 </head>
   <body class="bg-slate-900 text-gray-200 antialiased">
+    <div class="fixed inset-0 -z-10 overflow-hidden">
+        <div class="absolute top-0 left-0 w-[100vw] h-[100vh] bg-slate-900">
+            <div class="absolute -top-1/2 -left-1/2 w-[200%] h-[200%] bg-gradient-to-br from-indigo-900/30 via-slate-900 to-slate-900 animate-gradient-spin"></div>
+        </div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>
