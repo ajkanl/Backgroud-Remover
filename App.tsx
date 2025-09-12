@@ -1,7 +1,8 @@
 
 
+
 import React, { useState, useCallback, DragEvent } from 'react';
-import { removeBackground } from './services/geminiService';
+import { removeBackground, generateBackground } from './services/geminiService';
 import './services/firebase';
 
 // --- Type Definitions ---
@@ -50,10 +51,12 @@ export default function App() {
   const [dragOver, setDragOver] = useState<boolean>(false);
 
   // State for new background options
-  const [backgroundType, setBackgroundType] = useState<'transparent' | 'color' | 'image'>('transparent');
+  const [backgroundType, setBackgroundType] = useState<'transparent' | 'color' | 'image' | 'generate'>('transparent');
   const [backgroundColor, setBackgroundColor] = useState<string>('#FFFFFF');
   const [backgroundImagePreview, setBackgroundImagePreview] = useState<string | null>(null);
   const [backgroundImageAdjustments, setBackgroundImageAdjustments] = useState<BackgroundImageAdjustments>(initialAdjustments);
+  const [backgroundPrompt, setBackgroundPrompt] = useState<string>('');
+  const [isGeneratingBackground, setIsGeneratingBackground] = useState<boolean>(false);
 
   
   // State to control background editor visibility
@@ -118,6 +121,29 @@ export default function App() {
       setIsLoading(false);
     }
   };
+  
+  const handleGenerateBackground = async () => {
+    if (!backgroundPrompt) {
+        setError("Please enter a prompt for the background.");
+        return;
+    }
+    setIsGeneratingBackground(true);
+    setError(null);
+
+    try {
+        const resultBase64 = await generateBackground(backgroundPrompt);
+        if (backgroundImagePreview) {
+            URL.revokeObjectURL(backgroundImagePreview);
+        }
+        setBackgroundImagePreview(`data:image/jpeg;base64,${resultBase64}`);
+        setBackgroundType('image'); // Switch to image tab to show adjustments
+    } catch (err) {
+        const message = err instanceof Error ? err.message : "An unknown error occurred during background generation.";
+        setError(message);
+    } finally {
+        setIsGeneratingBackground(false);
+    }
+};
 
   const handleDownload = useCallback(async () => {
     if (!processedImage || !originalFile) return;
@@ -204,6 +230,8 @@ export default function App() {
     setBackgroundImagePreview(null);
     setShowBackgroundEditor(false);
     setBackgroundImageAdjustments(initialAdjustments);
+    setBackgroundPrompt('');
+    setIsGeneratingBackground(false);
   };
   
   const handleBackgroundImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -260,6 +288,10 @@ export default function App() {
                   onImageChange={handleBackgroundImageChange}
                   adjustments={backgroundImageAdjustments}
                   onAdjustmentsChange={setBackgroundImageAdjustments}
+                  prompt={backgroundPrompt}
+                  onPromptChange={(e) => setBackgroundPrompt(e.target.value)}
+                  onGenerate={handleGenerateBackground}
+                  isGenerating={isGeneratingBackground}
                 />
                </div>
             )}
@@ -361,7 +393,7 @@ interface ImageDisplayProps {
     foregroundUrl: string | null;
     isLoading?: boolean;
     onDownload?: () => void;
-    backgroundType?: 'transparent' | 'color' | 'image';
+    backgroundType?: 'transparent' | 'color' | 'image' | 'generate';
     backgroundColor?: string;
     backgroundImageUrl?: string | null;
     backgroundImageAdjustments?: BackgroundImageAdjustments;
@@ -371,7 +403,7 @@ const ImageDisplay: React.FC<ImageDisplayProps> = ({ title, foregroundUrl, isLoa
     const backgroundStyle: React.CSSProperties = {};
     let backgroundClasses = "absolute inset-0 w-full h-full transition-all duration-300";
 
-    if (backgroundType === 'transparent') {
+    if (backgroundType === 'transparent' || backgroundType === 'generate') {
         backgroundClasses += " checkerboard";
     } else if (backgroundType === 'color') {
         backgroundStyle.backgroundColor = backgroundColor;
@@ -424,24 +456,28 @@ const ImageDisplay: React.FC<ImageDisplayProps> = ({ title, foregroundUrl, isLoa
 
 
 interface BackgroundEditorProps {
-    backgroundType: 'transparent' | 'color' | 'image';
-    onTypeChange: (type: 'transparent' | 'color' | 'image') => void;
+    backgroundType: 'transparent' | 'color' | 'image' | 'generate';
+    onTypeChange: (type: 'transparent' | 'color' | 'image' | 'generate') => void;
     color: string;
     onColorChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
     onSwatchClick: (color: string) => void;
     onImageChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
     adjustments: BackgroundImageAdjustments;
     onAdjustmentsChange: React.Dispatch<React.SetStateAction<BackgroundImageAdjustments>>;
+    prompt: string;
+    onPromptChange: (event: React.ChangeEvent<HTMLTextAreaElement>) => void;
+    onGenerate: () => void;
+    isGenerating: boolean;
 }
 
-const BackgroundEditor: React.FC<BackgroundEditorProps> = ({ backgroundType, onTypeChange, color, onColorChange, onSwatchClick, onImageChange, adjustments, onAdjustmentsChange }) => {
+const BackgroundEditor: React.FC<BackgroundEditorProps> = ({ backgroundType, onTypeChange, color, onColorChange, onSwatchClick, onImageChange, adjustments, onAdjustmentsChange, prompt, onPromptChange, onGenerate, isGenerating }) => {
     const colorSwatches = ['#FFFFFF', '#000000', '#EF4444', '#3B82F6', '#22C55E', '#EAB308', '#8B5CF6'];
 
     const handleAdjustmentChange = (prop: keyof BackgroundImageAdjustments) => (e: React.ChangeEvent<HTMLInputElement>) => {
         onAdjustmentsChange(prev => ({ ...prev, [prop]: Number(e.target.value) }));
     };
     
-    const TabButton: React.FC<{ type: 'transparent' | 'color' | 'image', children: React.ReactNode }> = ({ type, children }) => (
+    const TabButton: React.FC<{ type: 'transparent' | 'color' | 'image' | 'generate', children: React.ReactNode }> = ({ type, children }) => (
         <button
             onClick={() => onTypeChange(type)}
             className={`px-4 py-2 text-sm font-medium rounded-full transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 focus-visible:ring-indigo-500 ${
@@ -461,6 +497,7 @@ const BackgroundEditor: React.FC<BackgroundEditorProps> = ({ backgroundType, onT
                 <TabButton type="transparent">Transparent</TabButton>
                 <TabButton type="color">Color</TabButton>
                 <TabButton type="image">Image</TabButton>
+                <TabButton type="generate"><div className="flex items-center gap-1.5"><SparklesIconSmall /> AI Generate</div></TabButton>
             </div>
             <div className="pt-6 border-t border-slate-700 min-h-[180px]">
                 {backgroundType === 'color' && (
@@ -525,6 +562,28 @@ const BackgroundEditor: React.FC<BackgroundEditorProps> = ({ backgroundType, onT
                  {backgroundType === 'transparent' && (
                     <p className="text-center text-slate-400 pt-4 animate-fade-in">The background is transparent. Perfect for layering!</p>
                  )}
+                 {backgroundType === 'generate' && (
+                    <div className="flex flex-col items-center gap-4 animate-fade-in">
+                        <p className="text-slate-400 text-center">Describe the background you want to create with AI.</p>
+                        <textarea
+                            value={prompt}
+                            onChange={onPromptChange}
+                            placeholder="e.g., A futuristic cityscape at night with neon lights"
+                            className="w-full max-w-md bg-slate-800 border border-slate-700 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors placeholder-slate-500"
+                            rows={3}
+                            disabled={isGenerating}
+                            aria-label="AI background prompt"
+                        />
+                        <button
+                            onClick={onGenerate}
+                            disabled={isGenerating || !prompt}
+                            className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold py-2.5 px-8 rounded-lg shadow-lg hover:shadow-indigo-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 flex items-center"
+                        >
+                            {isGenerating ? <SpinnerIcon /> : <SparklesIcon />}
+                            <span className="ml-2">{isGenerating ? 'Generating...' : 'Generate'}</span>
+                        </button>
+                    </div>
+                 )}
             </div>
         </div>
     );
@@ -560,6 +619,7 @@ const SliderControl: React.FC<SliderControlProps> = ({ label, value, onChange, m
 const UploadIcon: React.FC = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>;
 const DownloadIcon: React.FC = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" /></svg>;
 const SparklesIcon: React.FC = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 2a1 1 0 011 1v1h1a1 1 0 010 2H6v1a1 1 0 01-2 0V6H3a1 1 0 010-2h1V3a1 1 0 011-1zm0 10a1 1 0 011 1v1h1a1 1 0 110 2H6v1a1 1 0 11-2 0v-1H3a1 1 0 110-2h1v-1a1 1 0 011-1zM12 2a1 1 0 01.967.744L14.146 7.2 17.5 9.134a1 1 0 010 1.732l-3.354 1.935-1.18 4.455a1 1 0 01-1.933 0L9.854 12.8 6.5 10.866a1 1 0 010-1.732l3.354-1.935 1.18-4.455A1 1 0 0112 2z" clipRule="evenodd" /></svg>;
+const SparklesIconSmall: React.FC = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 2a1 1 0 011 1v1h1a1 1 0 010 2H6v1a1 1 0 01-2 0V6H3a1 1 0 010-2h1V3a1 1 0 011-1zm0 10a1 1 0 011 1v1h1a1 1 0 110 2H6v1a1 1 0 11-2 0v-1H3a1 1 0 110-2h1v-1a1 1 0 011-1zM12 2a1 1 0 01.967.744L14.146 7.2 17.5 9.134a1 1 0 010 1.732l-3.354 1.935-1.18 4.455a1 1 0 01-1.933 0L9.854 12.8 6.5 10.866a1 1 0 010-1.732l3.354-1.935 1.18-4.455A1 1 0 0112 2z" clipRule="evenodd" /></svg>;
 const SpinnerIcon: React.FC = () => <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>;
 const TrashIcon: React.FC = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>;
 const PaintBrushIcon: React.FC = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" /></svg>;

@@ -55,3 +55,40 @@ export const removeBackground = async (imageBase64: string, mimeType: string): P
     throw new Error("An unknown error occurred while removing the background.");
   }
 };
+
+/**
+ * Calls the Gemini API to generate an image from a text prompt.
+ * @param prompt The text prompt to generate an image from.
+ * @returns The base64 encoded string of the generated image.
+ */
+export const generateBackground = async (prompt: string): Promise<string> => {
+  if (!prompt.trim()) {
+    throw new Error("Prompt cannot be empty.");
+  }
+
+  try {
+    const response = await ai.models.generateImages({
+      model: 'imagen-4.0-generate-001',
+      prompt: `A high-quality, realistic background image for a photo subject. The subject will be placed in the foreground. The prompt is: "${prompt}". Create a visually appealing and well-composed background.`,
+      config: {
+        numberOfImages: 1,
+        outputMimeType: 'image/jpeg',
+        aspectRatio: '1:1',
+      },
+    });
+
+    const image = response.generatedImages?.[0]?.image?.imageBytes;
+
+    if (image) {
+      return image;
+    } else {
+      throw new Error("The AI could not generate an image for that prompt. Please try a different one.");
+    }
+  } catch (error) {
+    console.error("Error calling Gemini API for image generation:", error);
+    if (error instanceof Error) {
+      throw new Error(`An error occurred while communicating with the AI: ${error.message}`);
+    }
+    throw new Error("An unknown error occurred while generating the background.");
+  }
+};
