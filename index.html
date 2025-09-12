@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Background Remover</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      /* Simple checkerboard background for transparency visualization */
+      .checkerboard {
+        background-image:
+          linear-gradient(45deg, #444 25%, transparent 25%),
+          linear-gradient(-45deg, #444 25%, transparent 25%),
+          linear-gradient(45deg, transparent 75%, #444 75%),
+          linear-gradient(-45deg, transparent 75%, #444 75%);
+        background-size: 20px 20px;
+        background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.1.1",
+    "react/": "https://aistudiocdn.com/react@^19.1.1/",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.19.0"
+  }
+}
+</script>
+</head>
+  <body class="bg-slate-900 text-gray-200 antialiased">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
