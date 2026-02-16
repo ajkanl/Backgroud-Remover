@@ -1,14 +1,5 @@
-import { GoogleGenAI, Modality } from "@google/genai";
 
-const API_KEY = process.env.API_KEY;
-
-if (!API_KEY) {
-  // In a real app, you might want a more user-friendly error display,
-  // but for this environment, throwing an error is appropriate.
-  throw new Error("API_KEY environment variable not set. Please configure it to use the application.");
-}
-
-const ai = new GoogleGenAI({ apiKey: API_KEY });
+import { GoogleGenAI } from "@google/genai";
 
 /**
  * Calls the Gemini API to remove the background from an image.
@@ -17,9 +8,16 @@ const ai = new GoogleGenAI({ apiKey: API_KEY });
  * @returns The base64 encoded string of the background-removed image.
  */
 export const removeBackground = async (imageBase64: string, mimeType: string): Promise<string> => {
+  if (!process.env.API_KEY) {
+    throw new Error("API_KEY environment variable not set. Please ensure it is configured.");
+  }
+
+  // Create a new instance to ensure we use the correct configuration at call time
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image-preview',
+      model: 'gemini-2.5-flash-image',
       contents: {
         parts: [
           {
@@ -29,20 +27,19 @@ export const removeBackground = async (imageBase64: string, mimeType: string): P
             },
           },
           {
-            text: 'remove the background of this image. make the background transparent so it can be used as a layer. Do not add any text or explanation in your response, only output the edited image.',
+            text: 'Remove the background of this image. Output only the edited image with a transparent background. Do not include any text, headers, or explanations in your response.',
           },
         ],
       },
-      config: {
-        responseModalities: [Modality.IMAGE, Modality.TEXT],
-      },
     });
 
+    // Find the part containing the image data
     const imagePart = response.candidates?.[0]?.content?.parts?.find(part => part.inlineData);
 
     if (imagePart && imagePart.inlineData) {
       return imagePart.inlineData.data;
     } else {
+      // If no image is returned, look for a text error message from the model
       const textPart = response.candidates?.[0]?.content?.parts?.find(part => part.text);
       const errorMessage = textPart?.text || "The AI could not process the image. Please try a different one.";
       throw new Error(`Failed to extract image from AI response: ${errorMessage}`);
@@ -66,10 +63,16 @@ export const generateBackground = async (prompt: string): Promise<string> => {
     throw new Error("Prompt cannot be empty.");
   }
 
+  if (!process.env.API_KEY) {
+    throw new Error("API_KEY environment variable not set.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
   try {
     const response = await ai.models.generateImages({
       model: 'imagen-4.0-generate-001',
-      prompt: `A high-quality, realistic background image for a photo subject. The subject will be placed in the foreground. The prompt is: "${prompt}". Create a visually appealing and well-composed background.`,
+      prompt: `A professional, high-quality, realistic background for a photo subject. Theme: ${prompt}. The composition should be clean and suitable for placing a person or object in the foreground.`,
       config: {
         numberOfImages: 1,
         outputMimeType: 'image/jpeg',
